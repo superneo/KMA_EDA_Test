@@ -1,0 +1,95 @@
+---
+title: "EDA for KMA Seoul 2011~2020"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r, include = FALSE}
+source("../get_kma_data.R")
+kma1520 <- get_partial_KMA(2015, 2020)
+
+kma1520[is.na(kma1520[9]),][9] <- 0
+dates <- unlist(kma1520[3], use.names = FALSE)
+kma15 <- kma1520[unlist(lapply(dates, function(x) { startsWith(x, "2015") })),]
+daily_idcs <- as.integer(rownames(kma15))
+```
+
+### Data structure sample by head
+
+```{r, echo = FALSE}
+head(kma1520)
+```
+
+### Plot of 2015 daily min/max temperature time
+
+```{r, echo = FALSE}
+plot(daily_idcs, unlist(kma15[6]), main = "2015년 일 최저기온시각", xlab = "",
+     ylab = "최저기온시각(hhmi)")
+plot(daily_idcs, unlist(kma15[8]), main = "2015년 일 최고기온시각", xlab = "",
+     ylab = "최고기온시각(hhmi)")
+```
+
+### Plot of 2015 daily min/avg/max temperature
+
+```{r, echo = FALSE}
+plot(daily_idcs, unlist(kma15[4]), main = "2015년 일 최저/평균/최고 기온", xlab = "",
+     ylab = "기온", xlim = c(1,365), ylim = c(-20.0, 40.0))
+par(new = TRUE)
+plot(daily_idcs, unlist(kma15[5]), main = "", xlab = "", ylab = "",
+     xlim = c(1, 365), ylim = c(-20.0, 40.0), axes = FALSE, col = "blue")
+par(new = TRUE)
+plot(daily_idcs, unlist(kma15[7]), main = "", xlab = "", ylab = "",
+     xlim = c(1, 365), ylim = c(-20.0, 40.0), axes = FALSE, col = "red")
+par(new = FALSE)
+```
+
+### Correlation between 2015 daily min/avg/max temperature
+
+```{r, echo = FALSE}
+maxtemp <- kma15[7]
+avgtemp <- kma15[4]
+mintemp <- kma15[5]
+cor_max_min <- cor(maxtemp, mintemp)
+cor_max_avg <- cor(maxtemp, avgtemp)
+cor_avg_min <- cor(avgtemp, mintemp)
+sprintf("cor(maxTemp, minTemp): %f", cor_max_min)
+sprintf("cor(maxTemp, avgTemp): %f", cor_max_avg)
+sprintf("cor(avgTemp, minTemp): %f", cor_avg_min)
+```
+
+### Regression with 2015 daily max/min temperature
+
+```{r, echo = FALSE}
+tsmaxtemp <- ts(maxtemp, start = 1, frequency = 1)
+tsmintemp <- ts(mintemp, start = 1, frequency = 1)
+tsmaxmintemp <- ts.union(tsmaxtemp, tsmintemp)
+print("Head of tsmaxmintemp")
+head(tsmaxmintemp)
+plot(tsmaxmintemp, main = "Max/Min Temp TS", xlab = "", col = "mediumpurple3")
+maxmintemp_lm <- lm(tsmaxtemp ~ tsmintemp, data = tsmaxmintemp)
+summary(maxmintemp_lm)
+plot(tsmaxtemp, col = "red", ylim = c(-20, 40), ylab = "", xlab = "")
+lines(ts(predict(maxmintemp_lm), start = c(1, 1), frequency = 1), col = "blue")
+```
+
+### Box plot of 2015 daily min/avg/max temperature
+
+```{r, echo = FALSE}
+boxplot(kma15[, c(5, 4, 7)])
+#boxplot(kma20[, c(5, 4, 7)], add = TRUE, border = "red")
+```
+
+### Plot of 2015 daily precipitation
+
+```{r, echo = FALSE}
+plot(daily_idcs, unlist(kma15[9]), main = "2015년 일 강수량", xlab = "",
+     ylab = "강수량")
+```
+
+### Plot of 2015 daily avg temperature & precipitation
+
+```{r, echo = FALSE}
+plot(unlist(kma15[4]), unlist(kma15[9]), main = "2015년 강수량/평균 기온 산점도",
+     xlab = "평균기온", ylab = "강수량")
+```
