@@ -123,7 +123,8 @@ if (dwTestRes[["p"]] < 0.05) {
 library(forecast)
 if (dwTestRes[["p"]] < 0.05) {
   fit <- auto.arima(tsmaxtemp, xreg = tsmintemp)
-  Box.test(residuals(fit), type = "Ljung", lag = 1)
+  print(fit)
+  print(Box.test(residuals(fit), type = "Ljung", lag = 1))
   fake_mintemps <- data.frame(rep(mean(tsmintemp[361:365]), 4))
   colnames(fake_mintemps) <- colnames(kma15[5])
   fake_mintempsTS <- ts(fake_mintemps, start = 1, frequency = 1)
