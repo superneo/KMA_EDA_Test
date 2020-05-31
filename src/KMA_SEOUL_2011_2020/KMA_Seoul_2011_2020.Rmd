@@ -58,7 +58,7 @@ sprintf("cor(maxTemp, avgTemp): %f", cor_max_avg)
 sprintf("cor(avgTemp, minTemp): %f", cor_avg_min)
 ```
 
-### Regression with 2015 daily max/min temperature
+### (Timeseries) Multiple Regression with 2015 daily max/min temperature
 
 ```{r, echo = FALSE}
 tsmaxtemp <- ts(maxtemp, start = 1, frequency = 1)
@@ -69,8 +69,67 @@ head(tsmaxmintemp)
 plot(tsmaxmintemp, main = "Max/Min Temp TS", xlab = "", col = "mediumpurple3")
 maxmintemp_lm <- lm(tsmaxtemp ~ tsmintemp, data = tsmaxmintemp)
 summary(maxmintemp_lm)
-plot(tsmaxtemp, col = "red", ylim = c(-20, 40), ylab = "", xlab = "")
-lines(ts(predict(maxmintemp_lm), start = c(1, 1), frequency = 1), col = "blue")
+pred_maxtemp <- predict(maxmintemp_lm)
+residuals <- unlist(maxtemp) - pred_maxtemp
+plot(tsmaxtemp, col = "red", ylim = c(-20, 40), ylab = "", xlab = "",
+     main = "max temp obs.(red) vs prediction(blue)")
+lines(ts(pred_maxtemp, start = c(1, 1), frequency = 1), col = "blue")
+plot(daily_idcs, residuals,
+     main = "Test of the regression model validity by residuals")
+abline(lm(residuals ~ daily_idcs))
+```
+
+### Durbin-Watson test & autocorrelation correction by lagging 1 step
+
+``` {r, echo = FALSE}
+library(carData)
+library(car)
+dwTestRes <- durbinWatsonTest(maxmintemp_lm)
+if (dwTestRes[["p"]] < 0.05) {
+  print("The timeseries data has autocorrelation so we need to fix it!!!")
+  tsmaxmintempC <- ts.union(tsmaxtemp, tsmintemp,
+                            tsmaxtemp1 = lag(tsmaxtemp, -1))
+  maxmintemp_lmC <- lm(tsmaxtemp ~ tsmintemp + tsmaxtemp1,
+                       data = tsmaxmintempC)
+  print(summary(maxmintemp_lmC))
+  pred_maxtempC <- predict(maxmintemp_lmC)
+  residualsC <- unlist(maxtemp)[2:length(unlist(maxtemp))] - pred_maxtempC
+  plot(tsmaxtemp[2:length(tsmaxtemp)],
+       col = "red", ylim = c(-20, 40), ylab = "", xlab = "",
+       main = "max temp obs.(red) vs corrected prediction(blue)")
+  lines(ts(pred_maxtempC, start = c(1, 1), frequency = 1), col = "blue")
+  plot(daily_idcs[1:length(daily_idcs) - 1], residualsC,
+       main = "Test of the corrected regression model validity by residuals")
+  abline(lm(residualsC ~ daily_idcs[1:length(daily_idcs) - 1]))
+}
+```
+
+### Cochrane-Orcutt method for autocorrelation correction
+
+``` {r, echo = FALSE}
+library(zoo)
+library(lmtest)
+library(orcutt)
+if (dwTestRes[["p"]] < 0.05) {
+  print("Let's correct autocorrelation with the Cochrane-Orcutt method")
+  maxmintemp_lmO <- cochrane.orcutt(maxmintemp_lm)
+  print(summary(maxmintemp_lmO))
+}
+```
+
+### Generalized Time Series Regression
+
+``` {r, echo = FALSE}
+library(forecast)
+if (dwTestRes[["p"]] < 0.05) {
+  fit <- auto.arima(tsmaxtemp, xreg = tsmintemp)
+  Box.test(residuals(fit), type = "Ljung", lag = 1)
+  fake_mintemps <- data.frame(rep(mean(tsmintemp[361:365]), 4))
+  colnames(fake_mintemps) <- colnames(kma15[5])
+  fake_mintempsTS <- ts(fake_mintemps, start = 1, frequency = 1)
+  fcast <- forecast(fit, xreg = fake_mintempsTS, h = 4)
+  plot(fcast, main = "Generalized time series regression model prediction")
+}
 ```
 
 ### Box plot of 2015 daily min/avg/max temperature
